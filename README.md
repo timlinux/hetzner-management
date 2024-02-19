@@ -13,5 +13,7 @@ export HETZNER_API_TOKEN=XXXXXXXXXXXXXXXXXXXXX
 ./menu.py
 ```
 
+![Example in use](img/example.gif)
+
 Tim Sutton
 Feb 2024
