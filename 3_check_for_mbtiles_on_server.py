@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import os
 import time
 import paramiko
@@ -19,51 +20,59 @@ def get_servers():
     servers = client.servers.get_all()
     return servers
 
-def check_file_on_server():
-    # Set the path to the file you want to check
-    remote_file_path = '/path/to/your/file.txt'
-
-    # Get the user's home directory
-    user_home = os.path.expanduser("~")
-
-    # Set the path to the private key (assuming default location)
-    private_key_path = os.path.join(user_home, '.ssh', 'id_ed25519')
-
+def check_file_presence(hostname, username, private_key_path, remote_file_path):
     # Create an SSH client
     client = paramiko.SSHClient()
-    client.load_system_host_keys()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    # Set your server details
+    try:
+        # Load the private key from the agent
+        agent = paramiko.Agent()
+        keys = agent.get_keys()
+        if not keys:
+            print("No private keys found in the agent.")
+            return
+
+        # Connect to the server
+        client.connect(hostname, username=username, pkey=keys[0])
+
+        while True:
+            # Check if the file exists
+            stdin, stdout, stderr = client.exec_command(f"ls {remote_file_path}")
+            exit_status = stdout.channel.recv_exit_status()
+
+            if exit_status == 0:
+                print(f"File '{remote_file_path}' found. Exiting.")
+                return True
+            else:
+                print(f"File '{remote_file_path}' not found. Retrying in 5 minutes...")
+                return False
+    except paramiko.AuthenticationException:
+        print("Authentication failed. Please check your private key and credentials.")
+        return False
+    except paramiko.SSHException as e:
+        print(f"SSH error: {e}")
+        return False
+    finally:
+        client.close()
+
+def check_servers():
+    username = "root"
+    remote_file_path = "/path/to/remote/file.txt"
+    # Get the user's home directory
+    user_home = os.path.expanduser("~")
+    private_key_path = os.path.join(user_home, '.ssh', 'id_ed25519')
     servers = get_servers()
-    if not len(servers):
-       print(f"No more servers left to check!")
-
-    for server in servers:
-        print(f"Server ID: {server.id}, IP: {server.public_net.ipv4.ip}, Name: {server.name}, Status: {server.status}")
-        try:
-            # Load the private key
-            private_key = paramiko.Ed25519Key(filename=private_key_path)
-
-            # Connect to the server using the private key
-            client.connect(server.public_net.ipv4.ip, username="root", pkey=private_key)
-            while True:
-                # Check if the file exists
-                stdin, stdout, stderr = client.exec_command(f'test -e {remote_file_path}')
-                if stdout.read().strip() == b'':
-                    print(f"File '{remote_file_path}' not found. Waiting for 5 minutes...")
-                else:
-                    print(f"File '{remote_file_path}' found!.")
+    while len(servers):
+        for server in servers:
+            print(f"Server ID: {server.id}, IP: {server.public_net.ipv4.ip}, Name: {server.name}, Status: {server.status}")
+            try:
+                if check_file_presence(hostname, username, private_key_path, remote_file_path):
                     servers.remove(server)
-                break
-        except paramiko.AuthenticationException:
-            print("Authentication failed. Please check your credentials.")
-        except paramiko.SSHException as e:
-            print(f"SSH error: {e}")
-        finally:
-            client.close()
+            except:
+                print(f"File not found!")
         time.sleep(300)  # Wait for 5 minutes
-
+    print(f"No more servers left to check!")
 
 if __name__ == "__main__":
-    check_file_on_server()
+    check_servers()

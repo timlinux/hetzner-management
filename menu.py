@@ -3,54 +3,102 @@ import os
 import subprocess
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, GLib, Gdk
 
 class ScriptRunnerApp:
     def __init__(self):
+
         self.window = Gtk.Window(title="Script Runner")
-        self.window.set_default_size(400, 300)
+        self.window.set_default_size(600, 400)
         self.window.connect("destroy", Gtk.main_quit)
 
-        # Create a vertical box to hold buttons and output
-        self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.window.add(self.box)
+        # Create a grid to organize the layout
+        grid = Gtk.Grid()
+        grid.set_column_homogeneous(True)
+        grid.set_row_homogeneous(True)
+        grid.set_border_width(10)
+        self.window.add(grid)
 
         # Get a list of Python files in the current directory
         self.python_files = [f for f in os.listdir('.') if f.lower().endswith('.py')]
         self.python_files.sort()
 
         # Create buttons for each Python script
+        i = 0
         for filename in self.python_files:
             if filename == "menu.py":
                 continue
             display_name = filename.replace('_', ' ').replace('.py','').title()
             button = Gtk.Button(label=display_name)
             button.connect("clicked", self.run_script, filename)
-            self.box.pack_start(button, False, False, 0)
+            grid.attach(button, 0, i, 1, 1)
+            i += 1
+
+        # Create a grid to organize the layout of the spinner and its label
+        spinner_grid = Gtk.Grid()
+        spinner_grid.set_column_homogeneous(True)
+        spinner_grid.set_row_homogeneous(True)
+        spinner_grid.set_border_width(10)
+
+        # Create a scrolled text view in the right-hand area
+        scrolled_window = Gtk.ScrolledWindow()
+        text_view = Gtk.TextView()
+        text_view.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.text_buffer = text_view.get_buffer()
+        scrolled_window.add(text_view)
+        # i for how many rows to fill with the widget
+        grid.attach(scrolled_window, 1, 0, 1, i)
+
+        # Create a label for the spinner
+        spinner_label = Gtk.Label(label="Servers:")
+        spinner_grid.attach(spinner_label, 0, 0, 1, 1)
+
+        # Create a spinner with default value 5
+        adjustment = Gtk.Adjustment(
+            value=5, lower=1, upper=10, step_increment=1, page_increment=1, page_size=0)
+        self.spin_box = Gtk.SpinButton(adjustment=adjustment)
+        self.spin_box.set_numeric(True)
+        spinner_grid.attach(self.spin_box, 1, 0, 1, 1)
+        # Drop the spinner grid into the parent grid
+        grid.attach(spinner_grid, 0, i, 1, 1)
 
         # exit button
-        button = Gtk.Button(label="Exit")
-        button.connect("clicked", exit)
-        self.box.pack_start(button, False, False, 0)
+        exit_button = Gtk.Button(label="Exit")
+        exit_button.connect("clicked", self.on_window_destroy)
+        grid.attach(exit_button, 1, i, 1, 1)
 
-        # Create a scrolled window for output
-        self.scrolled_window = Gtk.ScrolledWindow()
-        self.text_view = Gtk.TextView()
-        self.text_view.set_size_request(260, 300)
-        self.text_buffer = self.text_view.get_buffer()
-        self.scrolled_window.add(self.text_view)
-        self.box.pack_start(self.scrolled_window, True, True, 0)
-
+        # Load the last used value (if any)
+        self.load_last_value()
+        self.window.connect("destroy", self.on_window_destroy)
         self.window.show_all()
 
     def run_script(self, button, filename):
         try:
-            output = subprocess.check_output(['python', filename], stderr=subprocess.STDOUT, text=True)
+            count = int(self.spin_box.get_value())
+            output = subprocess.check_output(['python', filename, str(count)], stderr=subprocess.STDOUT, text=True)
+            self.text_buffer.set_text("")
             self.text_buffer.insert_at_cursor(f"Output from {filename}:\n{output}\n\n")
         except subprocess.CalledProcessError as e:
             self.text_buffer.insert_at_cursor(f"Error executing {filename}:\n{e.output}\n\n")
 
+    def on_window_destroy(self, widget):
+        # Save the current value when the window is closed
+        self.save_last_value()
+        Gtk.main_quit()
+
+    def load_last_value(self):
+        try:
+            with open("server_count.txt", "r") as file:
+                last_value = int(file.read())
+                self.spin_box.set_value(last_value)
+        except FileNotFoundError:
+            pass
+
+    def save_last_value(self):
+        last_value = int(self.spin_box.get_value())
+        with open("server_count.txt", "w") as file:
+            file.write(str(last_value))
+
 if __name__ == "__main__":
     app = ScriptRunnerApp()
     Gtk.main()
-
