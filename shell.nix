@@ -18,6 +18,8 @@ in pkgs.mkShell rec {
     pythonPackages.hcloud
     pythonPackages.paramiko
     pythonPackages.pygobject3
+    # Needed for vscode autocompletion...
+    pythonPackages.pygobject-stubs
     pkgs.vscode
     # Those are dependencies that we would like to use from nixpkgs, which will
     # add them to PYTHONPATH and thus make them accessible from within the venv.

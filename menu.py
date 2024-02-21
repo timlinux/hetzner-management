@@ -4,6 +4,7 @@ import subprocess
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gdk
+from hcloud import Client
 
 class ScriptRunnerApp:
     def __init__(self):
@@ -18,6 +19,10 @@ class ScriptRunnerApp:
         grid.set_row_homogeneous(True)
         grid.set_border_width(10)
         self.window.add(grid)
+
+        # 
+        # Widgets for the left side
+        # 
 
         # Get a list of Python files in the current directory
         self.python_files = [f for f in os.listdir('.') if f.lower().endswith('.py')]
@@ -40,15 +45,6 @@ class ScriptRunnerApp:
         spinner_grid.set_row_homogeneous(True)
         spinner_grid.set_border_width(10)
 
-        # Create a scrolled text view in the right-hand area
-        scrolled_window = Gtk.ScrolledWindow()
-        text_view = Gtk.TextView()
-        text_view.set_wrap_mode(Gtk.WrapMode.WORD)
-        self.text_buffer = text_view.get_buffer()
-        scrolled_window.add(text_view)
-        # i for how many rows to fill with the widget
-        grid.attach(scrolled_window, 1, 0, 1, i)
-
         # Create a label for the spinner
         spinner_label = Gtk.Label(label="Servers:")
         spinner_grid.attach(spinner_label, 0, 0, 1, 1)
@@ -61,6 +57,42 @@ class ScriptRunnerApp:
         spinner_grid.attach(self.spin_box, 1, 0, 1, 1)
         # Drop the spinner grid into the parent grid
         grid.attach(spinner_grid, 0, i, 1, 1)
+
+        # Retrieve the API token from an environment variable
+        api_token = os.environ.get("HETZNER_API_TOKEN")
+
+        if not api_token:
+            print("Please set the HETZNER_API_TOKEN environment variable.")
+            exit(1)
+
+        # Initialize the client with the API token
+        client = Client(token=api_token)
+        # Fetch server types
+        server_types = client.server_types.get_all()
+
+        # Create a combobox
+        self.combobox = Gtk.ComboBoxText()
+        for server_type in server_types:
+            self.combobox.append_text(server_type.name)
+        self.combobox.set_active(0)
+        # Add the combobox to the window
+        i += 1
+        grid.attach(self.combobox, 0, i, 1, 1)
+
+        # 
+        # Widgets for the right side
+        # 
+
+        # Create a scrolled text view in the right-hand area
+        scrolled_window = Gtk.ScrolledWindow()
+        text_view = Gtk.TextView()
+        text_view.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.text_buffer = text_view.get_buffer()
+        scrolled_window.add(text_view)
+        # i for how many rows to fill with the widget
+        # -1 to leave space for exit button
+        grid.attach(scrolled_window, 1, 0, 1, i-1)
+
 
         # exit button
         exit_button = Gtk.Button(label="Exit")
@@ -75,7 +107,9 @@ class ScriptRunnerApp:
     def run_script(self, button, filename):
         try:
             count = int(self.spin_box.get_value())
-            output = subprocess.check_output(['python', filename, str(count)], stderr=subprocess.STDOUT, text=True)
+            server_type = str(
+                self.combobox.get_model()[self.combobox.get_active()][0])
+            output = subprocess.check_output(['python', filename, str(count), server_type], stderr=subprocess.STDOUT, text=True)
             self.text_buffer.set_text("")
             self.text_buffer.insert_at_cursor(f"Output from {filename}:\n{output}\n\n")
         except subprocess.CalledProcessError as e:
