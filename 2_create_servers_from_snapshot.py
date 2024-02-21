@@ -38,8 +38,10 @@ def main():
       # Create a server named "my-server" from a snapshot
       response = client.servers.create(
           name=server_name,
-          server_type=ServerType(name="cx11"),  # Choose an appropriate server type
-          image=Image(name="150018701"),  # Replace with your snapshot ID
+          #server_type=ServerType(name="cx11"),  # Choose an appropriate server type
+          server_type=ServerType(name="ccx63"),  # Choose an appropriate server type
+          #image=Image(name="150018701"),  # Replace with your snapshot ID
+          image=Image(name="150734419"),  # Replace with your snapshot ID
       )
     # List all your servers
     servers = client.servers.get_all()
