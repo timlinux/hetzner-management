@@ -15,23 +15,22 @@ in pkgs.mkShell rec {
     pythonPackages.venvShellHook
     pythonPackages.prompt-toolkit
     pythonPackages.hetzner
+    pythonPackages.hcloud
     pythonPackages.paramiko
     pythonPackages.pygobject3
-    
     pkgs.vscode
-
     # Those are dependencies that we would like to use from nixpkgs, which will
     # add them to PYTHONPATH and thus make them accessible from within the venv.
   ];
 
   # Run this command, only after creating the virtual environment
   postVenvCreation = ''
-     export DIRENV_LOG_FORMAT=
      unset SOURCE_DATE_EPOCH
      pip install -r requirements.txt
   '';
 
   shellHook = ''
+     export DIRENV_LOG_FORMAT=
      echo "-----------------------"
      echo "🌈 Your Hetzner Dev Environment is prepared."
      echo "Run ./menu.py to start the gui"
