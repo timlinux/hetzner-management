@@ -3,22 +3,56 @@ import os
 import subprocess
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib, Gdk
+from gi.repository import Gtk, GLib, Gdk, Gio
 from hcloud import Client
+import keyring
 
-class ScriptRunnerApp:
-    def __init__(self):
+class HetznerManagementApp(Gtk.Application):
+    
+    def __init__(self, app_id):
+        super().__init__(application_id=app_id)
+        self.app_id = app_id
+        self.connect('activate', self.on_activate)
+       
 
-        self.window = Gtk.Window(title="Script Runner")
-        self.window.set_default_size(600, 400)
-        self.window.connect("destroy", Gtk.main_quit)
+    def on_activate(self, app):
+        win = Gtk.ApplicationWindow(application=self, title="Hetzner Management App")
+        win.set_default_size(600, 400)
+
+        #
+        # Set up the settings dialog for storing the api key etc.
+        #
+
+        self.settings = Gio.Settings(self.app_id)
+        self.api_key = keyring.get_password("HetznerManagementApp", "api_key")
+
+        # Create a settings dialog
+        self.settings_dialog = Gtk.SettingsDialog(parent=win)
+        self.settings_dialog.set_transient_for(win)
+
+        # Create widgets for API key and server name prefix
+        self.api_key_entry = Gtk.Entry()
+        self.api_key_entry.set_text(self.api_key or "")
+        self.server_prefix_entry = Gtk.Entry()
+        self.server_prefix_entry.set_text(self.settings.get_string("server-prefix"))
+
+        # Add widgets to the dialog
+        self.settings_dialog.add_widget("API Key", self.api_key_entry)
+        self.settings_dialog.add_widget("Server Name Prefix", self.server_prefix_entry)
+
+        # Save settings when OK is clicked
+        self.settings_dialog.connect("response", self.on_response)
+
+        #
+        # Now the main dialog content
+        #
 
         # Create a grid to organize the layout
         grid = Gtk.Grid()
         grid.set_column_homogeneous(True)
         grid.set_row_homogeneous(True)
         grid.set_border_width(10)
-        self.window.add(grid)
+        win.add(grid)
 
         # 
         # Widgets for the left side
@@ -101,9 +135,10 @@ class ScriptRunnerApp:
 
         # Load the last used value (if any)
         self.load_last_value()
-        self.window.connect("destroy", self.on_window_destroy)
-        self.window.show_all()
-
+        win.connect("destroy", self.on_window_destroy)
+        win.show_all()
+        win.present()
+        
     def run_script(self, button, filename):
         try:
             count = int(self.spin_box.get_value())
@@ -133,6 +168,14 @@ class ScriptRunnerApp:
         with open("server_count.txt", "w") as file:
             file.write(str(last_value))
 
+    def on_response(self, dialog, response_id):
+        if response_id == Gtk.ResponseType.OK:
+            self.settings.set_string("server-prefix", self.server_prefix_entry.get_text())
+            keyring.set_password("ServerSettingsApp", "api_key", self.api_key_entry.get_text())
+
+
 if __name__ == "__main__":
-    app = ScriptRunnerApp()
-    Gtk.main()
+    app_id = 'com.kartoza.HetznerManagement'
+    os.environ["GSETTINGS_SCHEMA_DIR"]="/home/timlinux/dev/python/hetzner-management/schema/"
+    my_app = HetznerManagementApp(app_id)
+    my_app.run(None)

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="com.kartoza.HetznerManagement" path="/com/kartoza/HetznerManagement/" gettext-domain="HetznerManagement">
+    <key name="api-key" type="s">
+      <default>'your_default_api_key_here'</default>
+      <summary>API Key</summary>
+      <description>Your API key for authentication.</description>
+    </key>
+    <key name="server-prefix" type="s">
+      <default>'myserver'</default>
+      <summary>Server Name Prefix</summary>
+      <description>Prefix to use for newly deployed servers.</description>
+    </key>
+  </schema>
+</schemalist>
+
