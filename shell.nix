@@ -21,6 +21,7 @@ in pkgs.mkShell rec {
     pythonPackages.keyring
     # Needed for vscode autocompletion...
     pythonPackages.pygobject-stubs
+    pkgs.libadwaita
     pkgs.vscode
     pkgs.hcloud
     # Those are dependencies that we would like to use from nixpkgs, which will

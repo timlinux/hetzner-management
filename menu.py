@@ -3,6 +3,7 @@ import os
 import subprocess
 import gi
 gi.require_version('Gtk', '3.0')
+gi.require_version("Gio", "2.0")  # Add this line for Gio
 from gi.repository import Gtk, GLib, Gdk, Gio
 from hcloud import Client
 import keyring
@@ -27,7 +28,7 @@ class HetznerManagementApp(Gtk.Application):
         self.api_key = keyring.get_password("HetznerManagementApp", "api_key")
 
         # Create a settings dialog
-        self.settings_dialog = Gtk.SettingsDialog(parent=win)
+        self.settings_dialog = Gtk.Dialog(parent=win)
         self.settings_dialog.set_transient_for(win)
 
         # Create widgets for API key and server name prefix
@@ -35,11 +36,15 @@ class HetznerManagementApp(Gtk.Application):
         self.api_key_entry.set_text(self.api_key or "")
         self.server_prefix_entry = Gtk.Entry()
         self.server_prefix_entry.set_text(self.settings.get_string("server-prefix"))
-
+        
+        settings_grid = Gtk.Grid()
+        settings_grid.set_column_homogeneous(True)
+        settings_grid.set_row_homogeneous(True)
+        settings_grid.set_border_width(10)
+        self.settings_dialog.add(settings_grid)
         # Add widgets to the dialog
-        self.settings_dialog.add_widget("API Key", self.api_key_entry)
-        self.settings_dialog.add_widget("Server Name Prefix", self.server_prefix_entry)
-
+        settings_grid.attach(self.api_key_entry, 0, 0, 1, 1)
+        settings_grid.attach(self.server_prefix_entry, 1, 0, 1, 1)
         # Save settings when OK is clicked
         self.settings_dialog.connect("response", self.on_response)
 
