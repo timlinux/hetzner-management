@@ -211,5 +211,7 @@ class Application(Adw.Application):
 if __name__ == "__main__":
     
     os.environ["GSETTINGS_SCHEMA_DIR"]="/home/timlinux/dev/python/hetzner-management/schema/"
-    my_app = Application()
-    my_app.run(None)
+    app = Application()
+    sm = app.get_style_manager()
+    sm.set_color_scheme(Adw.ColorScheme.PREFER_DARK)    
+    app.run(None)
