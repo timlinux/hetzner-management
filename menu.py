@@ -2,23 +2,18 @@
 import os
 import subprocess
 import gi
-gi.require_version('Gtk', '3.0')
+gi.require_version('Gtk', '4.0')
 gi.require_version("Gio", "2.0")
-from gi.repository import Gtk, GLib, Gdk, Gio
+gi.require_version(namespace='Adw', version='1')
+from gi.repository import Gtk, GLib, Gdk, Gio, Adw
+
 from hcloud import Client
 import keyring
 
-class HetznerManagementApp(Gtk.Application):
-    
-    def __init__(self, app_id):
-        super().__init__(application_id=app_id)
-        self.app_id = app_id
-        self.connect('activate', self.on_activate)
-       
+class HetznerManagement(Gtk.ApplicationWindow):
 
-    def on_activate(self, app):
-        win = Gtk.ApplicationWindow(application=self, title="Hetzner Management App")
-        win.set_default_size(600, 400)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # Retrieve the API token from an environment variable
         if os.environ.get("HETZNER_API_TOKEN"):
             self.api_key = os.environ.get("HETZNER_API_TOKEN")
@@ -30,11 +25,12 @@ class HetznerManagementApp(Gtk.Application):
         #
         # Set up the settings dialog for storing the api key etc.
         #
-        self.create_settings_dialog(win)
+        #self.create_settings_dialog(self)
 
         if not self.api_key:
             print("Please set the HETZNER_API_TOKEN environment variable.")
-            self.settings.run_dispose()
+            #self.settings.run_dispose()
+            exit(1)
 
 
         #
@@ -45,8 +41,7 @@ class HetznerManagementApp(Gtk.Application):
         grid = Gtk.Grid()
         grid.set_column_homogeneous(True)
         grid.set_row_homogeneous(True)
-        grid.set_border_width(10)
-        win.add(grid)
+        self.set_child(grid)
 
         # 
         # Widgets for the left side
@@ -73,7 +68,6 @@ class HetznerManagementApp(Gtk.Application):
         spinner_grid = Gtk.Grid()
         spinner_grid.set_column_homogeneous(True)
         spinner_grid.set_row_homogeneous(True)
-        spinner_grid.set_border_width(10)
 
         # Create a label for the spinner
         spinner_label = Gtk.Label(label="Servers:")
@@ -112,7 +106,7 @@ class HetznerManagementApp(Gtk.Application):
         text_view = Gtk.TextView()
         text_view.set_wrap_mode(Gtk.WrapMode.WORD)
         self.text_buffer = text_view.get_buffer()
-        scrolled_window.add(text_view)
+        scrolled_window.set_child(text_view)
         # i for how many rows to fill with the widget
         # -1 to leave space for exit button
         grid.attach(scrolled_window, 1, 0, 1, i-1)
@@ -122,8 +116,7 @@ class HetznerManagementApp(Gtk.Application):
         exit_button = Gtk.Button(label="Exit")
         exit_button.connect("clicked", self.on_window_destroy)
         grid.attach(exit_button, 1, i, 1, 1)
-        win.show_all()
-        win.present()
+        self.present()
 
     def on_response(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK:
@@ -137,7 +130,7 @@ class HetznerManagementApp(Gtk.Application):
         win.present()
 
     def create_settings_dialog(self, win):
-        self.settings = Gio.Settings.new(self.app_id)
+        self.settings = Gio.Settings.new()
         # Create a settings dialog
         self.settings_dialog = Gtk.Dialog(parent=win)
         self.settings_dialog.set_transient_for(win)
@@ -151,7 +144,6 @@ class HetznerManagementApp(Gtk.Application):
         settings_grid = Gtk.Grid()
         settings_grid.set_column_homogeneous(True)
         settings_grid.set_row_homogeneous(True)
-        settings_grid.set_border_width(10)
         box.add(settings_grid)
         # Add widgets to the dialog
         settings_grid.attach(self.api_key_entry, 0, 0, 1, 1)
@@ -194,8 +186,30 @@ class HetznerManagementApp(Gtk.Application):
             file.write(str(last_value))
 
 
+class Application(Adw.Application):
+
+    def __init__(self):
+        app_id = 'com.kartoza.HetznerManagement'
+        super().__init__(
+            application_id=app_id,
+            flags=Gio.ApplicationFlags.FLAGS_NONE)
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+
+    def do_activate(self):
+        win = self.props.active_window
+        if not win:
+            win = HetznerManagement(application=self)
+        win.present()
+
+    def do_shutdown(self):
+        Gtk.Application.do_shutdown(self)
+
+
+
 if __name__ == "__main__":
-    app_id = 'com.kartoza.HetznerManagement'
+    
     os.environ["GSETTINGS_SCHEMA_DIR"]="/home/timlinux/dev/python/hetzner-management/schema/"
-    my_app = HetznerManagementApp(app_id)
+    my_app = Application()
     my_app.run(None)
