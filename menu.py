@@ -3,7 +3,7 @@ import os
 import subprocess
 import gi
 gi.require_version('Gtk', '3.0')
-gi.require_version("Gio", "2.0")  # Add this line for Gio
+gi.require_version("Gio", "2.0")
 from gi.repository import Gtk, GLib, Gdk, Gio
 from hcloud import Client
 import keyring
@@ -23,8 +23,7 @@ class HetznerManagementApp(Gtk.Application):
         #
         # Set up the settings dialog for storing the api key etc.
         #
-
-        self.settings = Gio.Settings(self.app_id)
+        self.settings = Gio.Settings.new(self.app_id)
         self.api_key = keyring.get_password("HetznerManagementApp", "api_key")
 
         # Create a settings dialog
