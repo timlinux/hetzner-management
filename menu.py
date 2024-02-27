@@ -19,33 +19,23 @@ class HetznerManagementApp(Gtk.Application):
     def on_activate(self, app):
         win = Gtk.ApplicationWindow(application=self, title="Hetzner Management App")
         win.set_default_size(600, 400)
+        # Retrieve the API token from an environment variable
+        if os.environ.get("HETZNER_API_TOKEN"):
+            self.api_key = os.environ.get("HETZNER_API_TOKEN")
+
+        # otherwise get from the keystore
+        if not self.api_key:
+            self.api_key = keyring.get_password("HetznerManagementApp", "api_key")
 
         #
         # Set up the settings dialog for storing the api key etc.
         #
-        self.settings = Gio.Settings.new(self.app_id)
-        self.api_key = keyring.get_password("HetznerManagementApp", "api_key")
+        self.create_settings_dialog(win)
 
-        # Create a settings dialog
-        self.settings_dialog = Gtk.Dialog(parent=win)
-        self.settings_dialog.set_transient_for(win)
+        if not self.api_key:
+            print("Please set the HETZNER_API_TOKEN environment variable.")
+            self.settings.run_dispose()
 
-        # Create widgets for API key and server name prefix
-        self.api_key_entry = Gtk.Entry()
-        self.api_key_entry.set_text(self.api_key or "")
-        self.server_prefix_entry = Gtk.Entry()
-        self.server_prefix_entry.set_text(self.settings.get_string("server-prefix"))
-        
-        settings_grid = Gtk.Grid()
-        settings_grid.set_column_homogeneous(True)
-        settings_grid.set_row_homogeneous(True)
-        settings_grid.set_border_width(10)
-        self.settings_dialog.add(settings_grid)
-        # Add widgets to the dialog
-        settings_grid.attach(self.api_key_entry, 0, 0, 1, 1)
-        settings_grid.attach(self.server_prefix_entry, 1, 0, 1, 1)
-        # Save settings when OK is clicked
-        self.settings_dialog.connect("response", self.on_response)
 
         #
         # Now the main dialog content
@@ -71,6 +61,8 @@ class HetznerManagementApp(Gtk.Application):
         for filename in self.python_files:
             if filename == "menu.py":
                 continue
+            #if filename[0] not in [0,1,2,3,4,5,6,7,8,9]:
+            #    continue
             display_name = filename.replace('_', ' ').replace('.py','').title()
             button = Gtk.Button(label=display_name)
             button.connect("clicked", self.run_script, filename)
@@ -96,15 +88,9 @@ class HetznerManagementApp(Gtk.Application):
         # Drop the spinner grid into the parent grid
         grid.attach(spinner_grid, 0, i, 1, 1)
 
-        # Retrieve the API token from an environment variable
-        api_token = os.environ.get("HETZNER_API_TOKEN")
-
-        if not api_token:
-            print("Please set the HETZNER_API_TOKEN environment variable.")
-            exit(1)
-
+               
         # Initialize the client with the API token
-        client = Client(token=api_token)
+        client = Client(token=self.api_key)
         # Fetch server types
         server_types = client.server_types.get_all()
 
@@ -136,12 +122,47 @@ class HetznerManagementApp(Gtk.Application):
         exit_button = Gtk.Button(label="Exit")
         exit_button.connect("clicked", self.on_window_destroy)
         grid.attach(exit_button, 1, i, 1, 1)
+        win.show_all()
+        win.present()
+
+    def on_response(self, dialog, response_id):
+        if response_id == Gtk.ResponseType.OK:
+            self.settings.set_string("server-prefix", self.server_prefix_entry.get_text())
+            keyring.set_password("ServerSettingsApp", "api_key", self.api_key_entry.get_text())
 
         # Load the last used value (if any)
         self.load_last_value()
         win.connect("destroy", self.on_window_destroy)
         win.show_all()
         win.present()
+
+    def create_settings_dialog(self, win):
+        self.settings = Gio.Settings.new(self.app_id)
+        # Create a settings dialog
+        self.settings_dialog = Gtk.Dialog(parent=win)
+        self.settings_dialog.set_transient_for(win)
+        box = self.settings_dialog.get_content_area()
+        # Create widgets for API key and server name prefix
+        self.api_key_entry = Gtk.Entry()
+        self.api_key_entry.set_text(self.api_key)
+        self.server_prefix_entry = Gtk.Entry()
+        self.server_prefix_entry.set_text(self.settings.get_string("server-prefix"))
+        
+        settings_grid = Gtk.Grid()
+        settings_grid.set_column_homogeneous(True)
+        settings_grid.set_row_homogeneous(True)
+        settings_grid.set_border_width(10)
+        box.add(settings_grid)
+        # Add widgets to the dialog
+        settings_grid.attach(self.api_key_entry, 0, 0, 1, 1)
+        settings_grid.attach(self.server_prefix_entry, 1, 0, 1, 1)
+        # Save settings when OK is clicked
+        self.settings_dialog.connect("response", self.on_response)
+
+    def on_response(self, dialog, response_id):
+        if response_id == Gtk.ResponseType.OK:
+            self.settings.set_string("server-prefix", self.server_prefix_entry.get_text())
+            keyring.set_password("ServerSettingsApp", "api_key", self.api_key_entry.get_text())
         
     def run_script(self, button, filename):
         try:
@@ -171,11 +192,6 @@ class HetznerManagementApp(Gtk.Application):
         last_value = int(self.spin_box.get_value())
         with open("server_count.txt", "w") as file:
             file.write(str(last_value))
-
-    def on_response(self, dialog, response_id):
-        if response_id == Gtk.ResponseType.OK:
-            self.settings.set_string("server-prefix", self.server_prefix_entry.get_text())
-            keyring.set_password("ServerSettingsApp", "api_key", self.api_key_entry.get_text())
 
 
 if __name__ == "__main__":
